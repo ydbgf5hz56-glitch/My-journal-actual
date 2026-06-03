@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Journal" />
+  <meta name="theme-color" content="#0d0c0a" />
+  <link rel="manifest" href="./manifest.json" />
+  <title>Daily Journal</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0c0a;
+      --surface: #131210;
+      --border: #1e1c18;
+      --border-mid: #2a2820;
+      --text: #e8e2d9;
+      --text-dim: #8a8278;
+      --text-muted: #5a5450;
+      --text-faint: #3a3830;
+      --gold: #c9a96e;
+      --gold-dim: #7a6040;
+      --gold-bg: #1a1712;
+      --blue: #7ab8c9;
+      --blue-dim: #3a6878;
+      --blue-bg: #121618;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app { min-height: 100vh; }
+
+    /* Offline banner */
+    #offline-banner {
+      display: none;
+      position: fixed;
+      top: calc(var(--safe-top) + 0px);
+      left: 0; right: 0;
+      background: #2a2010;
+      border-bottom: 1px solid #4a3818;
+      color: #c9a96e;
+      font-size: 12px;
+      text-align: center;
+      padding: 8px;
+      z-index: 100;
+      letter-spacing: 0.06em;
+      font-family: 'DM Sans', sans-serif;
+    }
+    body.offline #offline-banner { display: block; }
+
+    /* Header */
+    .header {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      z-index: 20;
+      padding: calc(var(--safe-top) + 14px) 20px 14px;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pill-group {
+      display: flex;
+      gap: 2px;
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .pill-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+      white-space: nowrap;
+    }
+    .pill-btn.active-personal { background: var(--gold-bg); border-color: var(--gold-dim); color: var(--gold); }
+    .pill-btn.active-professional { background: var(--blue-bg); border-color: var(--blue-dim); color: var(--blue); }
+    .pill-btn.active-view-personal { color: var(--gold); background: #1e1c18; }
+    .pill-btn.active-view-professional { color: var(--blue); background: #1e1c18; }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .stat { text-align: center; }
+    .stat-value { font-family: 'Lora', serif; font-size: 20px; color: var(--text); line-height: 1; }
+    .stat-value.gold { color: var(--gold); }
+    .stat-value.blue { color: var(--blue); }
+    .stat-label { font-size: 9px; color: var(--text-muted); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 3px; }
+
+    /* Main content */
+    .main { max-width: 560px; margin: 0 auto; padding: 32px 20px calc(40px + var(--safe-bottom)); }
+
+    .date-line {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+      letter-spacing: 0.04em;
+    }
+    .date-line span { color: var(--gold-dim); }
+    .date-line span.blue { color: var(--blue-dim); }
+
+    /* Entry fields */
+    .field { margin-bottom: 36px; }
+
+    .field-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .field-dot {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 1px solid var(--border-mid);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.25s;
+      font-size: 10px;
+      color: var(--text-faint);
+    }
+    .field-dot.done { border: none; font-size: 11px; }
+    .field-dot.done-happened-personal { background: #7a9060; color: var(--bg); }
+    .field-dot.done-mind-personal { background: #9a8060; color: var(--bg); }
+    .field-dot.done-priority-personal { background: var(--gold); color: var(--bg); }
+    .field-dot.done-happened-professional { background: #5090a0; color: var(--bg); }
+    .field-dot.done-mind-professional { background: #6070a0; color: var(--bg); }
+    .field-dot.done-priority-professional { background: var(--blue); color: var(--bg); }
+
+    .field-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+    }
+    .field-label.filled { color: #706860; }
+
+    .field-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-size: 17px;
+      font-family: 'Lora', serif;
+      line-height: 1.75;
+      padding: 8px 0;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s;
+      display: block;
+    }
+    .field-input::placeholder { color: var(--text-faint); font-style: italic; font-size: 15px; }
+    .field-input:focus { border-bottom-color: var(--gold); }
+    .field-input.professional:focus { border-bottom-color: var(--blue); }
+    .field-input.filled { border-bottom-color: #302e28; }
+
+    /* Save button */
+    .save-row { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
+
+    .save-btn {
+      border: none; padding: 12px 28px; border-radius: 6px;
+      font-size: 13px; letter-spacing: 0.06em;
+      cursor: pointer; transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .save-btn.ready-personal { background: var(--gold); color: var(--bg); }
+    .save-btn.ready-professional { background: var(--blue); color: var(--bg); }
+    .save-btn.not-ready { background: var(--surface); color: var(--text-faint); cursor: default; }
+
+    .saved-msg { font-size: 13px; color: #6a8858; letter-spacing: 0.03em; }
+
+    /* History */
+    .history-item { margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+    .history-date { font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 14px; }
+    .history-line { display: flex; gap: 12px; margin-bottom: 10px; }
+    .history-tag { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; min-width: 56px; padding-top: 3px; flex-shrink: 0; }
+    .history-text { font-size: 14px; color: #c0b8a8; line-height: 1.65; font-family: 'Lora', serif; }
+
+    /* Digest */
+    .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .week-nav-btn {
+      background: none; border: 1px solid var(--border-mid); color: var(--text-dim);
+      padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 12px;
+      font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+    }
+    .week-nav-btn:disabled { color: var(--text-faint); border-color: var(--border); cursor: default; }
+    .week-label { text-align: center; }
+    .week-label-main { font-size: 13px; color: var(--text); }
+    .week-label-sub { font-size: 11px; margin-top: 2px; }
+
+    .day-dots { display: flex; gap: 5px; margin-bottom: 36px; justify-content: center; }
+    .day-dot-wrap { text-align: center; }
+    .day-dot {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; margin-bottom: 4px;
+      background: var(--surface); border: 1px solid var(--border-mid);
+      color: var(--text-faint);
+    }
+    .day-dot.filled-personal { background: var(--gold); border: none; color: var(--bg); }
+    .day-dot.filled-professional { background: var(--blue); border: none; color: var(--bg); }
+    .day-letter { font-size: 9px; color: var(--text-faint); letter-spacing: 0.05em; }
+
+    .digest-btn {
+      width: 100%; padding: 13px; border-radius: 8px;
+      font-size: 13px; letter-spacing: 0.06em;
+      font-family: 'DM Sans', sans-serif; margin-bottom: 32px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .digest-btn.personal { background: var(--gold-bg); border: 1px solid var(--gold-dim); color: var(--gold); }
+    .digest-btn.professional { background: var(--blue-bg); border: 1px solid var(--blue-dim); color: var(--blue); }
+    .digest-btn.loading { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); cursor: default; }
+    .digest-btn.offline-disabled { background: var(--surface); border: 1px solid var(--border); color: var(--text-faint); cursor: default; }
+
+    .digest-result { border-top: 1px solid var(--border); padding-top: 32px; }
+    .digest-header { font-size: 10px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 28px; }
+    .digest-section { margin-bottom: 28px; }
+    .digest-section-title { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #6a6458; margin-bottom: 10px; }
+    .digest-section-body { font-size: 14px; color: #c8c0b0; line-height: 1.85; font-family: 'Lora', serif; }
+
+    .empty-state { text-align: center; color: var(--text-faint); font-size: 14px; padding-top: 60px; font-family: 'Lora', serif; font-style: italic; }
+
+    .offline-note {
+      margin-top: 16px;
+      padding: 14px 16px;
+      background: #1a1610;
+      border: 1px solid #3a3018;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #8a7850;
+      line-height: 1.6;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="offline-banner">✈ Offline — journaling works, digest requires connection</div>
+  <div id="app"></div>
+
+  <script>
+    // ── Data ──────────────────────────────────────────────────────────────────
+    const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    const TYPES = {
+      personal: {
+        label: "Personal",
+        prompts: {
+          happened: ["One thing that happened today","A moment worth remembering","Something that stood out"],
+          mind:     ["One thing on your mind right now","What's weighing on you","Something you're thinking about"],
+          priority: ["Your top priority for tomorrow","One thing that matters most tomorrow","What you'll focus on tomorrow"],
+        }
+      },
+      professional: {
+        label: "Professional",
+        prompts: {
+          happened: ["One work win or challenge today","Something notable at work","A key thing that happened professionally"],
+          mind:     ["One work thing on your mind","A problem you're turning over","Something unresolved at work"],
+          priority: ["Your top work priority tomorrow","The one task that moves things forward","What you must get done tomorrow"],
+        }
+      }
+    };
+
+    function todayKey() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function fmtDate(key) {
+      const [y,m,d] = key.split('-').map(Number);
+      const dt = new Date(y, m-1, d);
+      return `${DAYS[dt.getDay()]}, ${d} ${SHORT_MONTHS[m-1]} ${y}`;
+    }
+
+    function weekStart(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() - d.getDay() - offset * 7);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function weekKeys(ws) {
+      const [y,m,d] = ws.split('-').map(Number);
+      return Array.from({length:7}, (_,i) => {
+        const dt = new Date(y, m-1, d+i);
+        return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      });
+    }
+
+    function weekLabel(ws) {
+      const [y,m,d] = ws.split('-').map(Number);
+      const end = new Date(y, m-1, d+6);
+      return `${d} ${SHORT_MONTHS[m-1]} – ${end.getDate()} ${SHORT_MONTHS[end.getMonth()]}`;
+    }
+
+    function streak(entries) {
+      let s = 0;
+      const today = new Date();
+      for (let i = 0; i < 365; i++) {
+        const dt = new Date(today);
+        dt.setDate(dt.getDate() - i);
+        const k = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+        const e = entries[k];
+        if (e && (e.happened || e.mind || e.priority)) s++;
+        else break;
+      }
+      return s;
+    }
+
+    function hasEntry(e) { return e && (e.happened || e.mind || e.priority); }
+
+    function getPrompt(type, field, key) {
+      const arr = TYPES[type].prompts[field];
+      const hash = key.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
+      return arr[hash % arr.length];
+    }
+
+    // ── Storage ───────────────────────────────────────────────────────────────
+    function load(key, fallback) {
+      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+      catch { return fallback; }
+    }
+    function save(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let state = {
+      type: 'personal',
+      view: 'today',
+      today: todayKey(),
+      entries: load('jrnl_entries', { personal: {}, professional: {} }),
+      digests: load('jrnl_digests', { personal: {}, professional: {} }),
+      weekOffset: 0,
+      digestLoading: false,
+      saved: false,
+      offline: !navigator.onLine,
+    };
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function render() {
+      const s = state;
+      const cfg = TYPES[s.type];
+      const entries = s.entries[s.type];
+      const todayEntry = entries[s.today] || { happened:'', mind:'', priority:'' };
+      const str = streak(entries);
+      const total = Object.keys(entries).filter(k => hasEntry(entries[k])).length;
+      const ws = weekStart(s.weekOffset);
+      const wkeys = weekKeys(ws);
+      const weekCount = wkeys.filter(k => hasEntry(entries[k])).length;
+      const currentDigest = s.digests[s.type]?.[ws];
+      const todayFilled = todayEntry.happened || todayEntry.mind || todayEntry.priority;
+      const historyKeys = Object.keys(entries)
+        .filter(k => k !== s.today && hasEntry(entries[k]))
+        .sort((a,b) => b.localeCompare(a)).slice(0,30);
+
+      document.body.classList.toggle('offline', s.offline);
+
+      const html = `
+        <div class="header">
+          <div class="header-row">
+            <div class="pill-group">
+              <button class="pill-btn ${s.type==='personal'?'active-personal':''}" onclick="setType('personal')">Personal</button>
+              <button class="pill-btn ${s.type==='professional'?'active-professional':''}" onclick="setType('professional')">Professional</button>
+            </div>
+            <div class="stats">
+              <div class="stat">
+                <div class="stat-value ${str>0?(s.type==='personal'?'gold':'blue'):''}">${str>0?str+'d':'—'}</div>
+                <div class="stat-label">streak</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">${total||'—'}</div>
+                <div class="stat-label">entries</div>
+              </div>
+            </div>
+            <div class="pill-group">
+              ${['today','history','digest'].map(v=>`<button class="pill-btn ${s.view===v?'active-view-'+s.type:''}" onclick="setView('${v}')">${v}</button>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div class="main">
+          ${s.view === 'today' ? renderToday(s, todayEntry, todayFilled, cfg) : ''}
+          ${s.view === 'history' ? renderHistory(historyKeys, entries, s.type, total) : ''}
+          ${s.view === 'digest' ? renderDigest(s, wkeys, ws, weekCount, currentDigest) : ''}
+        </div>
+      `;
+      document.getElementById('app').innerHTML = html;
+
+      // Auto-resize textareas
+      document.querySelectorAll('.field-input').forEach(ta => {
+        ta.style.height = 'auto';
+        ta.style.height = ta.scrollHeight + 'px';
+        ta.addEventListener('input', function() {
+          this.style.height = 'auto';
+          this.style.height = this.scrollHeight + 'px';
+        });
+      });
+    }
+
+    function renderToday(s, entry, filled, cfg) {
+      const fields = ['happened','mind','priority'];
+      const dotClasses = {
+        happened: { personal:'done-happened-personal', professional:'done-happened-professional' },
+        mind:     { personal:'done-mind-personal',     professional:'done-mind-professional' },
+        priority: { personal:'done-priority-personal', professional:'done-priority-professional' },
+      };
+      return `
+        <div class="date-line">${fmtDate(s.today)} · <span class="${s.type==='professional'?'blue':''}">${cfg.label}</span></div>
+        ${fields.map((f,i) => `
+          <div class="field">
+            <div class="field-header">
+              <div class="field-dot ${entry[f]?'done '+dotClasses[f][s.type]:''}">${entry[f]?'✓':(i+1)}</div>
+              <div class="field-label ${entry[f]?'filled':''}">${getPrompt(s.type, f, s.today)}</div>
+            </div>
+            <textarea
+              class="field-input ${s.type} ${entry[f]?'filled':''}"
+              placeholder="Write anything…"
+              rows="2"
+              oninput="updateField('${f}', this.value)"
+            >${entry[f]||''}</textarea>
+          </div>
+        `).join('')}
+        <div class="save-row">
+          <button
+            class="save-btn ${filled ? 'ready-'+s.type : 'not-ready'}"
+            onclick="${filled?'saveEntry()':''}"
+          >${s.saved?'Saved ✓':'Save entry'}</button>
+        </div>
+      `;
+    }
+
+    function renderHistory(keys, entries, type, total) {
+      const tagColors = {
+        personal:     { happened:'#7a9060', mind:'#9a8060', priority:'#c9a96e' },
+        professional: { happened:'#5090a0', mind:'#6070a0', priority:'#7ab8c9' },
+      }[type];
+      if (!keys.length) return `<div class="empty-state">No past entries yet.<br>Write today's first.</div>`;
+      return `
+        <div class="date-line">${TYPES[type].label} · ${total} ${total===1?'entry':'entries'}</div>
+        ${keys.map(k => {
+          const e = entries[k];
+          return `
+            <div class="history-item">
+              <div class="history-date">${fmtDate(k)}</div>
+              ${e.happened?`<div class="history-line"><span class="history-tag" style="color:${tagColors.happened}">happened</span><span class="history-text">${e.happened}</span></div>`:''}
+              ${e.mind?`<div class="history-line"><span class="history-tag" style="color:${tagColors.mind}">mind</span><span class="history-text">${e.mind}</span></div>`:''}
+              ${e.priority?`<div class="history-line"><span class="history-tag" style="color:${tagColors.priority}">priority</span><span class="history-text">${e.priority}</span></div>`:''}
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+
+    function renderDigest(s, wkeys, ws, weekCount, currentDigest) {
+      const isPersonal = s.type === 'personal';
+      const accentColor = isPersonal ? 'var(--gold-dim)' : 'var(--blue-dim)';
+      const entries = s.entries[s.type];
+
+      const dots = wkeys.map(k => {
+        const filled = hasEntry(entries[k]);
+        const [,,d] = k.split('-').map(Number);
+        const dayIdx = new Date(k).getDay();
+        return `
+          <div class="day-dot-wrap">
+            <div class="day-dot ${filled?'filled-'+s.type:''}">${d}</div>
+            <div class="day-letter">${DAYS[dayIdx][0]}</div>
+          </div>
+        `;
+      }).join('');
+
+      const parsedSections = parseDigest(currentDigest);
+
+      const digestContent = !weekCount
+        ? `<div class="empty-state">No entries this week yet.</div>`
+        : `
+          ${s.offline && !currentDigest ? `<div class="offline-note">✈ Digest generation needs a connection.<br>Your entries are saved and ready for when you're back online.</div>` : ''}
+          ${!s.offline || currentDigest ? `
+            <button
+              class="digest-btn ${s.digestLoading?'loading':(s.type)}"
+              onclick="${s.digestLoading?'':'generateDigest()'}"
+            >${s.digestLoading ? 'Generating…' : currentDigest ? 'Regenerate digest' : 'Generate '+TYPES[s.type].label+' digest'}</button>
+          ` : ''}
+          ${currentDigest && !s.digestLoading ? `
+            <div class="digest-result">
+              <div class="digest-header">${TYPES[s.type].label} · ${weekLabel(ws)}</div>
+              ${parsedSections.length
+                ? parsedSections.map(sec => `
+                    <div class="digest-section">
+                      <div class="digest-section-title">${sec.label}</div>
+                      <div class="digest-section-body">${sec.content}</div>
+                    </div>
+                  `).join('')
+                : `<div class="digest-section-body">${currentDigest}</div>`
+              }
+            </div>
+          ` : ''}
+        `;
+
+      return `
+        <div class="week-nav">
+          <button class="week-nav-btn" onclick="shiftWeek(1)">← Prev</button>
+          <div class="week-label">
+            <div class="week-label-main">${weekLabel(ws)}</div>
+            <div class="week-label-sub" style="color:${accentColor}">${weekCount}/7 entries</div>
+          </div>
+          <button class="week-nav-btn" ${s.weekOffset===0?'disabled':''} onclick="shiftWeek(-1)">This week</button>
+        </div>
+        <div class="day-dots">${dots}</div>
+        ${digestContent}
+      `;
+    }
+
+    function parseDigest(text) {
+      if (!text) return [];
+      const sections = [
+        { key: "RECURRING THEMES", label: "Recurring Themes" },
+        { key: "PRIORITIES FOLLOW-THROUGH", label: "Priorities Follow-Through" },
+        { key: "DOMINANT TOPICS", label: "Dominant Topics" },
+        { key: "WEEKLY SUMMARY", label: "Weekly Summary" },
+      ];
+      return sections.map((s, i) => {
+        const start = text.indexOf(s.key + ":");
+        if (start === -1) return null;
+        const contentStart = start + s.key.length + 1;
+        const next = sections.slice(i+1).reduce((min, ns) => {
+          const idx = text.indexOf(ns.key + ":");
+          return (idx !== -1 && idx < min) ? idx : min;
+        }, text.length);
+        return { label: s.label, content: text.slice(contentStart, next).trim() };
+      }).filter(Boolean);
+    }
+
+    // ── Actions ───────────────────────────────────────────────────────────────
+    function setType(t) { state.type = t; state.saved = false; render(); }
+    function setView(v) { state.view = v; render(); }
+    function shiftWeek(dir) { state.weekOffset = Math.max(0, state.weekOffset + dir); render(); }
+
+    function updateField(field, value) {
+      const key = state.today;
+      const existing = state.entries[state.type][key] || { happened:'', mind:'', priority:'' };
+      state.entries[state.type][key] = { ...existing, [field]: value };
+      state.saved = false;
+      // Update dot only (no full re-render to keep cursor)
+      updateDots();
+    }
+
+    function updateDots() {
+      const entry = state.entries[state.type][state.today] || {};
+      ['happened','mind','priority'].forEach((f,i) => {
+        const dot = document.querySelectorAll('.field-dot')[i];
+        if (!dot) return;
+        const filled = !!entry[f];
+        dot.className = 'field-dot' + (filled ? ' done done-'+f+'-'+state.type : '');
+        dot.textContent = filled ? '✓' : (i+1);
+      });
+      // Update save button
+      const anyFilled = entry.happened || entry.mind || entry.priority;
+      const btn = document.querySelector('.save-btn');
+      if (btn) {
+        btn.className = 'save-btn ' + (anyFilled ? 'ready-'+state.type : 'not-ready');
+        if (anyFilled) btn.setAttribute('onclick', 'saveEntry()');
+        else btn.removeAttribute('onclick');
+      }
+    }
+
+    function saveEntry() {
+      save('jrnl_entries', state.entries);
+      state.saved = true;
+      const btn = document.querySelector('.save-btn');
+      if (btn) btn.textContent = 'Saved ✓';
+    }
+
+    async function generateDigest() {
+      if (state.offline) return;
+      state.digestLoading = true;
+      render();
+
+      const ws = weekStart(state.weekOffset);
+      const wkeys = weekKeys(ws);
+      const entries = state.entries[state.type];
+      const weekEntries = {};
+      wkeys.forEach(k => { if (entries[k]) weekEntries[k] = entries[k]; });
+
+      const lines = Object.entries(weekEntries)
+        .filter(([,e]) => hasEntry(e))
+        .sort(([a],[b]) => a.localeCompare(b))
+        .map(([k,e]) => `${fmtDate(k)}:\n  Happened: ${e.happened||'—'}\n  Mind: ${e.mind||'—'}\n  Priority: ${e.priority||'—'}`)
+        .join('\n\n');
+
+      const isPersonal = state.type === 'personal';
+      const systemPrompt = isPersonal
+        ? `You are a thoughtful personal journal analyst. Analyse the user's journal entries and produce a weekly digest. Be warm, insightful, and personal.`
+        : `You are a sharp professional journal analyst. Analyse work journal entries and produce a weekly digest. Be clear, actionable, and strategic.`;
+
+      const userPrompt = `Here are my ${state.type} journal entries:\n\n${lines}\n\nGenerate a weekly digest with these four sections. Plain text only, no markdown. Section titles in ALL CAPS followed by a colon.\n\nRECURRING THEMES: What topics keep appearing? 2-3 sentences.\n\nPRIORITIES FOLLOW-THROUGH: Did stated priorities connect to what happened next day? 2-3 sentences.\n\nDOMINANT TOPICS: What took up the most mental space? 2-3 sentences.\n\nWEEKLY SUMMARY: Honest summary of this week as a whole. 3-4 sentences.`;
+
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }]
+          })
+        });
+        const data = await res.json();
+        const text = data.content?.map(b => b.text||'').join('').trim() || '';
+        if (text) {
+          if (!state.digests[state.type]) state.digests[state.type] = {};
+          state.digests[state.type][ws] = text;
+          save('jrnl_digests', state.digests);
+        }
+      } catch(e) { console.error(e); }
+
+      state.digestLoading = false;
+      render();
+    }
+
+    // ── Online/offline detection ───────────────────────────────────────────────
+    window.addEventListener('online',  () => { state.offline = false; render(); });
+    window.addEventListener('offline', () => { state.offline = true;  render(); });
+
+    // ── Service Worker ────────────────────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(console.error);
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    render();
+  </script>
+</body>
+</html>
